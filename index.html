@@ -119,12 +119,28 @@
   .field-label{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:16px 0 6px;}
   .field{
     background:var(--asphalt-2);border-radius:12px;padding:14px 16px;
-    display:flex;align-items:center;gap:10px;
+    display:flex;align-items:center;gap:10px;position:relative;
   }
   .field input, .field select{
     background:transparent;border:none;color:var(--cream);font-size:15px;
     width:100%;outline:none;font-family:var(--font-body);
   }
+  .suggest-box{
+    position:absolute;top:calc(100% + 4px);left:0;right:0;
+    background:var(--asphalt-2);border:1px solid rgba(255,255,255,.08);
+    border-radius:12px;overflow:hidden;z-index:20;
+    box-shadow:0 10px 30px rgba(0,0,0,.4);
+    max-height:180px;overflow-y:auto;display:none;
+  }
+  .suggest-box.show{display:block;}
+  .suggest-item{
+    padding:11px 16px;font-size:14px;cursor:pointer;color:var(--cream);
+    border-bottom:1px solid rgba(255,255,255,.05);
+  }
+  .suggest-item:last-child{border-bottom:none;}
+  .suggest-item:hover, .suggest-item.hl{background:rgba(242,183,5,.12);color:var(--taxi);}
+  .suggest-item b{color:var(--taxi);}
+  .suggest-item.hl b{color:var(--taxi);}
   .chip-row{display:flex;gap:8px;margin-top:8px;}
   .chip{
     flex:1;background:var(--asphalt-2);border:2px solid transparent;border-radius:10px;
@@ -206,10 +222,14 @@
     <div class="brand"><h1 style="cursor:pointer" onclick="goTo('home')">&larr; Book a cab</h1></div>
 
     <div class="field-label">Pickup</div>
-    <div class="field">📍<input id="pickupIn" placeholder="e.g. Adajan, Surat"></div>
+    <div class="field">📍<input id="pickupIn" placeholder="e.g. Ahmedabad" autocomplete="off" oninput="showSuggestions('pickupIn')" onfocus="showSuggestions('pickupIn')">
+      <div class="suggest-box" id="pickupIn-suggest"></div>
+    </div>
 
     <div class="field-label">Drop</div>
-    <div class="field">🏁<input id="dropIn" placeholder="e.g. Surat Airport"></div>
+    <div class="field">🏁<input id="dropIn" placeholder="e.g. Surat" autocomplete="off" oninput="showSuggestions('dropIn')" onfocus="showSuggestions('dropIn')">
+      <div class="suggest-box" id="dropIn-suggest"></div>
+    </div>
 
     <div class="field-label">Cab type</div>
     <div class="chip-row">
@@ -278,6 +298,48 @@ document.getElementById('fleetNote').innerHTML = `4 cabs on the road · call us 
 
 let selectedType = "Hatchback";
 let currentTrip = null;
+
+// City / area list — edit this freely to match where you actually operate
+const CITY_LIST = [
+  "Ahmedabad", "Ahmedabad Airport", "Maninagar, Ahmedabad", "Bopal, Ahmedabad",
+  "Satellite, Ahmedabad", "Vastrapur, Ahmedabad", "Naroda, Ahmedabad", "SG Highway, Ahmedabad",
+  "Gandhinagar", "Surat", "Surat Airport", "Adajan, Surat", "Vadodara", "Vadodara Airport",
+  "Rajkot", "Rajkot Airport", "Bhavnagar", "Jamnagar", "Junagadh", "Anand", "Nadiad",
+  "Mehsana", "Palanpur", "Patan", "Himatnagar", "Bharuch", "Ankleshwar", "Valsad",
+  "Vapi", "Navsari", "Porbandar", "Dwarka", "Somnath", "Statue of Unity, Kevadia",
+  "Mount Abu", "Udaipur", "Mumbai", "Mumbai Airport"
+];
+
+function showSuggestions(inputId){
+  const input = document.getElementById(inputId);
+  const box = document.getElementById(inputId + '-suggest');
+  const val = input.value.trim().toLowerCase();
+
+  if(!val){ box.classList.remove('show'); box.innerHTML=''; return; }
+
+  const matches = CITY_LIST.filter(c => c.toLowerCase().includes(val)).slice(0, 6);
+  if(matches.length === 0){ box.classList.remove('show'); box.innerHTML=''; return; }
+
+  box.innerHTML = matches.map(c => {
+    const idx = c.toLowerCase().indexOf(val);
+    const highlighted = c.slice(0,idx) + '<b>' + c.slice(idx, idx+val.length) + '</b>' + c.slice(idx+val.length);
+    return `<div class="suggest-item" onmousedown="selectSuggestion('${inputId}', '${c.replace(/'/g,"\\'")}')">${highlighted}</div>`;
+  }).join('');
+  box.classList.add('show');
+}
+
+function selectSuggestion(inputId, value){
+  document.getElementById(inputId).value = value;
+  document.getElementById(inputId + '-suggest').classList.remove('show');
+}
+
+document.addEventListener('click', function(e){
+  document.querySelectorAll('.suggest-box').forEach(box=>{
+    if(!box.previousElementSibling || (!box.parentElement.contains(e.target))){
+      box.classList.remove('show');
+    }
+  });
+});
 
 function goTo(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
