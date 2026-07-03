@@ -213,6 +213,7 @@
     </div>
 
     <button class="btn" onclick="goTo('book')">Book a cab</button>
+    <a id="callBtnHome" class="btn ghost small" style="display:block;text-align:center;text-decoration:none" href="#">📞 Call us now</a>
 
     <div class="fleet-note" id="fleetNote">4 cabs on the road · usually confirms in under 5 min</div>
   </div>
@@ -231,6 +232,36 @@
       <div class="suggest-box" id="dropIn-suggest"></div>
     </div>
 
+    <div class="field-label">Trip type</div>
+    <div class="chip-row">
+      <div class="chip selected" data-trip="One Way" onclick="selectTripType(this)">One Way</div>
+      <div class="chip" data-trip="Round Trip" onclick="selectTripType(this)">Round Trip</div>
+      <div class="chip" data-trip="Multi City" onclick="selectTripType(this)">Multi City</div>
+    </div>
+
+    <div id="extraStopWrap" style="display:none">
+      <div class="field-label">Additional stop</div>
+      <div class="field">➕<input id="extraStopIn" placeholder="e.g. Vadodara" autocomplete="off" oninput="showSuggestions('extraStopIn')" onfocus="showSuggestions('extraStopIn')">
+        <div class="suggest-box" id="extraStopIn-suggest"></div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <div style="flex:1">
+        <div class="field-label">Date</div>
+        <div class="field">📅<input id="dateIn" type="date"></div>
+      </div>
+      <div style="flex:1">
+        <div class="field-label">Time</div>
+        <div class="field">⏰<input id="timeIn" type="time"></div>
+      </div>
+    </div>
+
+    <div id="returnDateWrap" style="display:none">
+      <div class="field-label">Return date</div>
+      <div class="field">📅<input id="returnDateIn" type="date"></div>
+    </div>
+
     <div class="field-label">Cab type</div>
     <div class="chip-row">
       <div class="chip selected" data-type="Hatchback" onclick="selectChip(this)">Hatchback</div>
@@ -240,14 +271,6 @@
 
     <div class="field-label">Your phone number</div>
     <div class="field">📱<input id="phoneIn" placeholder="For the driver to reach you" inputmode="tel"></div>
-
-    <div class="meter">
-      <div>
-        <div class="label">Estimated fare</div>
-        <div class="fare" id="fareOut">₹ ---</div>
-      </div>
-      <button class="btn small" style="width:auto;padding:10px 16px" onclick="estimateFare()">Estimate</button>
-    </div>
 
     <div style="margin-top:auto;padding-top:20px">
       <button class="btn" onclick="submitBooking()">Send booking request</button>
@@ -267,13 +290,17 @@
       <div class="trip-row"><span>Pickup</span><span id="tripPickup">-</span></div>
       <div class="trip-row"><span>Drop</span><span id="tripDrop">-</span></div>
       <div class="divider"></div>
+      <div class="trip-row"><span>Trip type</span><span id="tripKind">-</span></div>
+      <div class="trip-row"><span>Date</span><span id="tripDate">-</span></div>
+      <div class="trip-row"><span>Time</span><span id="tripTime">-</span></div>
+      <div class="divider"></div>
       <div class="trip-row"><span>Cab type</span><span id="tripType">-</span></div>
-      <div class="trip-row"><span>Fare (est.)</span><span id="tripFare">-</span></div>
       <div class="divider"></div>
       <div class="trip-row"><span>Booking ID</span><span id="tripId">-</span></div>
     </div>
 
     <a id="waBtn" class="btn small" style="display:block;text-align:center;text-decoration:none;background:#2F9E68;color:#fff" href="#" target="_blank">Send this request on WhatsApp</a>
+    <a id="callBtnStatus" class="btn small" style="display:block;text-align:center;text-decoration:none;background:var(--taxi);color:var(--asphalt);margin-top:10px" href="#">📞 Call us to confirm</a>
     <button class="btn ghost small" onclick="confirmBooking()" id="simulateBtn">Simulate: brother confirms this trip</button>
     <button class="btn small" onclick="goTo('home')" style="margin-top:8px">Back to home</button>
   </div>
@@ -290,14 +317,23 @@
 const CONFIG = {
   businessName: "Maa Arbuda Cabs",
   businessPhone: "9409293105",
-  ratePerKm: 14,      // ₹ per km, adjust to real pricing
-  baseFare: 60,        // ₹ pickup/base charge
 };
 document.getElementById('bizNameHome').textContent = CONFIG.businessName;
 document.getElementById('fleetNote').innerHTML = `4 cabs on the road · call us directly on <b>${CONFIG.businessPhone}</b>`;
+document.getElementById('callBtnHome').href = `tel:+91${CONFIG.businessPhone}`;
+document.getElementById('dateIn').valueAsDate = new Date();
 
 let selectedType = "Hatchback";
+let selectedTrip = "One Way";
 let currentTrip = null;
+
+function selectTripType(el){
+  document.querySelectorAll('.chip-row')[0].querySelectorAll('.chip').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedTrip = el.dataset.trip;
+  document.getElementById('extraStopWrap').style.display = selectedTrip === 'Multi City' ? 'block' : 'none';
+  document.getElementById('returnDateWrap').style.display = selectedTrip === 'Round Trip' ? 'block' : 'none';
+}
 
 // City / area list — edit this freely to match where you actually operate
 const CITY_LIST = [
@@ -350,39 +386,35 @@ function goTo(id){
 }
 
 function selectChip(el){
-  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('selected'));
+  el.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('selected'));
   el.classList.add('selected');
   selectedType = el.dataset.type;
-}
-
-function estimateFare(){
-  // Demo-only: random plausible distance since there's no real maps/GPS wired up yet
-  const km = (Math.random()*10 + 3).toFixed(1);
-  const mult = selectedType === "SUV" ? 1.4 : selectedType === "Sedan" ? 1.15 : 1;
-  const fare = Math.round((CONFIG.baseFare + km*CONFIG.ratePerKm) * mult);
-  document.getElementById('fareOut').textContent = `₹ ${fare} (~${km} km)`;
-  return fare;
 }
 
 function submitBooking(){
   const pickup = document.getElementById('pickupIn').value.trim();
   const drop = document.getElementById('dropIn').value.trim();
   const phone = document.getElementById('phoneIn').value.trim();
-  if(!pickup || !drop || !phone){
-    alert("Please fill pickup, drop, and phone number.");
+  const date = document.getElementById('dateIn').value;
+  const time = document.getElementById('timeIn').value;
+  if(!pickup || !drop || !phone || !date || !time){
+    alert("Please fill pickup, drop, date, time and phone number.");
     return;
   }
-  const fareText = document.getElementById('fareOut').textContent;
+  const extraStop = document.getElementById('extraStopIn').value.trim();
+  const returnDate = document.getElementById('returnDateIn').value;
+
   currentTrip = {
     id: 'BK' + Math.floor(1000 + Math.random()*9000),
-    pickup, drop, type: selectedType,
-    fare: fareText === '₹ ---' ? `₹ ${estimateFare()}` : fareText
+    pickup, drop, type: selectedType, trip: selectedTrip, date, time, extraStop, returnDate
   };
 
-  document.getElementById('tripPickup').textContent = currentTrip.pickup;
+  document.getElementById('tripPickup').textContent = currentTrip.pickup + (extraStop ? ` → ${extraStop}` : '');
   document.getElementById('tripDrop').textContent = currentTrip.drop;
   document.getElementById('tripType').textContent = currentTrip.type;
-  document.getElementById('tripFare').textContent = currentTrip.fare;
+  document.getElementById('tripKind').textContent = currentTrip.trip;
+  document.getElementById('tripDate').textContent = currentTrip.date + (returnDate ? ` (return ${returnDate})` : '');
+  document.getElementById('tripTime').textContent = currentTrip.time;
   document.getElementById('tripId').textContent = currentTrip.id;
 
   document.getElementById('statusBadge').className = 'status-badge';
@@ -391,8 +423,9 @@ function submitBooking(){
   document.getElementById('statusSub').innerHTML = '<span class="pulse"></span>Tap below to send us your request';
   document.getElementById('simulateBtn').style.display = 'block';
 
-  const msg = `New cab booking request%0AID: ${currentTrip.id}%0APickup: ${currentTrip.pickup}%0ADrop: ${currentTrip.drop}%0ACab type: ${currentTrip.type}%0AFare est: ${currentTrip.fare}%0ACustomer phone: ${document.getElementById('phoneIn').value.trim()}`;
+  const msg = `New cab booking request%0AID: ${currentTrip.id}%0ATrip type: ${currentTrip.trip}%0APickup: ${currentTrip.pickup}${extraStop ? '%0AStop: ' + extraStop : ''}%0ADrop: ${currentTrip.drop}%0ADate: ${currentTrip.date}${returnDate ? ' (return ' + returnDate + ')' : ''}%0ATime: ${currentTrip.time}%0ACab type: ${currentTrip.type}%0ACustomer phone: ${phone}`;
   document.getElementById('waBtn').href = `https://wa.me/91${CONFIG.businessPhone}?text=${msg}`;
+  document.getElementById('callBtnStatus').href = `tel:+91${CONFIG.businessPhone}`;
 
   goTo('status');
 }
